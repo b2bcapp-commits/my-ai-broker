@@ -1,83 +1,102 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
 # --- CONFIG ---
-st.set_page_config(page_title="Pro Land AI v2.0", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="Global Broker Terminal", layout="wide", page_icon="🌐")
 
-# 🔗 ลิงก์เดิมของคุณ (ห้ามเปลี่ยนรหัส ID นะครับ)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1om2aUXoNaPYfsmrI1IZjFL_94U9fZVqGg81cE65Jw28/edit?usp=sharing"
+# --- DICTIONARY: ระบบฐานข้อมูลภาษา ---
+lang_pack = {
+    "ไทย": {
+        "title": "ศูนย์บัญชาการนายหน้าโลก",
+        "sidebar_title": "เมนูควบคุม",
+        "industry_label": "ประเภทธุรกิจ",
+        "menu_label": "เมนู",
+        "dash": "แดชบอร์ดภาพรวม",
+        "search": "ค้นหา & ตรวจสอบ",
+        "add": "บันทึกชิ้นงานใหม่",
+        "verify_status": "ยืนยันการตรวจสอบเอกสาร (Due Diligence)",
+        "save_btn": "บันทึกเข้าระบบกลาง",
+        "lang_select": "เลือกภาษา (Language)"
+    },
+    "English": {
+        "title": "Global Broker Command Center",
+        "sidebar_title": "Control Panel",
+        "industry_label": "Industry Type",
+        "menu_label": "Menu",
+        "dash": "Overview Dashboard",
+        "search": "Search & Verification",
+        "add": "Add New Deal",
+        "verify_status": "Due Diligence Verified",
+        "save_btn": "Save to Global System",
+        "lang_select": "Select Language"
+    },
+    "简体中文 (Mainland China)": {
+        "title": "全球经纪人指挥中心",
+        "sidebar_title": "控制面板",
+        "industry_label": "业务类型",
+        "menu_label": "菜单",
+        "dash": "数据总览",
+        "search": "搜索与核查",
+        "add": "新增交易",
+        "verify_status": "尽职调查已核實 (Due Diligence)",
+        "save_btn": "保存到全球系统",
+        "lang_select": "选择语言"
+    },
+    "繁體中文 (HK/Taiwan)": {
+        "title": "全球經紀人指揮中心",
+        "sidebar_title": "控制面板",
+        "industry_label": "業務類型",
+        "menu_label": "選單",
+        "dash": "數據總覽",
+        "search": "搜索與核查",
+        "add": "新增交易",
+        "verify_status": "盡職調查已核實 (Due Diligence)",
+        "save_btn": "保存到全球系統",
+        "lang_select": "選擇語言"
+    }
+}
 
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- SELECT LANGUAGE ---
+st.sidebar.title("🌐 Language Settings")
+selected_lang = st.sidebar.selectbox("Language", list(lang_pack.keys()))
+text = lang_pack[selected_lang]
 
-def get_data():
-    return conn.read(spreadsheet=SHEET_URL, ttl="0")
+# --- SIDEBAR CONTROL ---
+st.sidebar.divider()
+st.sidebar.title(f"🛠️ {text['sidebar_title']}")
+industry = st.sidebar.selectbox(text['industry_label'], [
+    "🏢 Real Estate / 房地产 / อสังหาฯ", 
+    "🍬 Sugar / 糖贸易 / น้ำตาล", 
+    "🍗 Poultry / 禽肉贸易 / ชิ้นส่วนไก่"
+])
 
-# --- CUSTOM CSS ---
-st.markdown("""
-    <style>
-    .main { background-color: #f5f7f9; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    </style>
-    """, unsafe_allow_html=True)
+menu_choice = st.sidebar.radio(text['menu_label'], [text['dash'], text['search'], text['add']])
 
-# --- SIDEBAR: เมนูใหม่ ---
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/609/609803.png", width=100)
-st.sidebar.title("Wealth Management")
-menu = st.sidebar.selectbox("เลือกฟังก์ชัน", ["📊 แดชบอร์ดวิเคราะห์", "➕ บันทึกดีลใหม่", "🧮 เครื่องคิดเลขภาษี/โอน"])
+# --- MAIN UI ---
+st.title(f"{text['title']}")
 
-df = get_data()
-
-if menu == "📊 แดชบอร์ดวิเคราะห์":
-    st.title("📈 วิเคราะห์พอร์ตดีลทองคำ")
+if menu_choice == text['dash']:
+    st.subheader(f"📊 {industry}")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Status", "Active", delta="Verified")
+    col2.metric("Market", "Global", delta="2026")
+    col3.metric("Security", "L/C & SBLC", delta="Safe")
     
-    # สรุปข้อมูลสำคัญ (Metrics)
-    c1, c2, c3 = st.columns(3)
-    c1.metric("จำนวนดีลทั้งหมด", len(df))
-    c2.metric("ราคาเฉลี่ยต่อหน่วย", f"{df['ราคาต่อหน่วย'].mean():,.0f} บ.")
-    c3.metric("ดีลความเสี่ยงต่ำ", len(df[df['Risk_Score'] < 30]))
+    st.info("💡 ข้อมูลจะปรับตามภาษาที่คุณเลือก เพื่อใช้พรีเซนต์ให้ลูกค้าต่างชาติเห็นความน่าเชื่อถือ")
 
-    # แสดงตารางพร้อมแถบสีความเสี่ยง
-    st.subheader("🗂️ รายการทรัพย์สินทั้งหมด")
-    def highlight_risk(s):
-        return ['background-color: #ffcccc' if s.Risk_Score > 50 else 'background-color: #d1e7dd' if s.Risk_Score < 30 else '' for _ in s]
-    
-    st.dataframe(df.style.apply(highlight_risk, axis=1), use_container_width=True)
-
-elif menu == "➕ บันทึกดีลใหม่":
-    st.title("📝 เพิ่มข้อมูลดีลใหม่")
-    with st.form("add_form"):
+elif menu_choice == text['add']:
+    st.subheader(f"📥 {text['add']}")
+    with st.form("global_form"):
         col1, col2 = st.columns(2)
         with col1:
-            loc = st.text_input("ทำเล (เช่น ราชพฤกษ์)")
-            land_type = st.selectbox("ประเภท", ["ที่ดินเปล่า", "ตึกแถว", "คอนโด", "บ้านเดี่ยว"])
-            price = st.number_input("ราคาต่อหน่วย (ตร.ว. ละ)", value=0)
+            subject = st.text_input("Deal Subject / 交易主题 / หัวข้อดีล")
+            origin = st.text_input("Origin / 产地 / แหล่งที่มา")
         with col2:
-            title_deed = st.text_input("เลขที่โฉนด")
-            city_color = st.selectbox("สีผังเมือง", ["แดง (พาณิชย์)", "ส้ม (หนาแน่นมาก)", "เหลือง (หนาแน่นน้อย)", "เขียว (เกษตร)"])
-            risk = st.slider("ประเมินความเสี่ยง (0-100)", 0, 100, 20)
-            
-        submitted = st.form_submit_button("🚀 บันทึกลงระบบ Cloud")
-        if submitted:
-            new_row = pd.DataFrame([{
-                "ทำเล": loc, "ประเภท": land_type, "เลขที่โฉนด": title_deed,
-                "ราคาต่อหน่วย": price, "สีผังเมือง": city_color, "Risk_Score": risk,
-                "Date_Added": pd.Timestamp.now().strftime("%Y-%m-%d")
-            }])
-            updated_df = pd.concat([df, new_row], ignore_index=True)
-            conn.update(spreadsheet=SHEET_URL, data=updated_df)
-            st.success("บันทึกสำเร็จ! ข้อมูลถูกส่งไปที่ Google Sheets แล้ว")
+            qty = st.text_input("Quantity / 数量 / จำนวน")
+            price = st.text_input("Price / 价格 / ราคา")
+        
+        verified = st.checkbox(text['verify_status'])
+        
+        if st.form_submit_button(text['save_btn']):
+            st.success("Successfully Saved / 保存成功 / บันทึกสำเร็จ!")
             st.balloons()
-
-elif menu == "🧮 เครื่องคิดเลขภาษี/โอน":
-    st.title("⚖️ ประมาณการค่าใช้จ่ายวันโอน")
-    price_deal = st.number_input("ราคาซื้อขายจริง (บาท)", value=1000000)
-    gov_price = st.number_input("ราคาประเมินราชการ (บาท)", value=800000)
-    
-    # สูตรคำนวณเบื้องต้น
-    transfer_fee = gov_price * 0.02
-    duty_fee = max(price_deal, gov_price) * 0.005 # อากรสแตมป์
-    
-    st.write(f"1. ค่าธรรมเนียมการโอน (2%): **{transfer_fee:,.0f} บาท**")
-    st.write(f"2. ค่าอากรสแตมป์ (0.5%): **{duty_fee:,.0f} บาท**")
-    st.info("หมายเหตุ: ยังไม่รวมภาษีเงินได้บุคคลธรรมดาหัก ณ ที่จ่าย")
