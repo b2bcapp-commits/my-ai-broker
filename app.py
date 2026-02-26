@@ -3,9 +3,10 @@ import streamlit as st
 # --- 1. ระบบฐานข้อมูลรหัสผ่าน (จำลอง) ---
 # ในอนาคตสามารถเชื่อมต่อกับฐานข้อมูลจริงได้
 USER_CREDENTIALS = {
-    "admin_ceo": {"password": "ceo789", "role": "CEO"},
-    "seller_01": {"password": "sale123", "role": "Seller"},
-    "buyer_99": {"password": "buy456", "role": "Buyer"}
+    "admin": {"password": "65595665", "role": "CEO", "name": "CEO Master"}, # แก้เลข 789 เป็นรหัสที่คุณต้องการ
+    "seller": {"password": "123", "role": "Seller", "name": "Thai Supplier"},
+    "buyer": {"password": "456", "role": "Buyer", "name": "Global Investor"}
+}
 }
 
 # --- 2. ฟังก์ชันตรวจสอบการเข้าสู่ระบบ ---
