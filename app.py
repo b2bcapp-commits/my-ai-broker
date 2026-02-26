@@ -1,81 +1,80 @@
 import streamlit as st
 import pandas as pd
-import webbrowser
 
-# --- 1. CONFIG ---
+# --- 1. SETTINGS ---
 st.set_page_config(page_title="Global Trade Platform", layout="wide", page_icon="🌐")
 
-# ใส่ LINE ID หรือ Link OA ของคุณตรงนี้
-LINE_ADMIN_URL = "https://line.me/ti/p/~YOUR_LINE_ID" # <-- เปลี่ยนเป็น ID ของคุณ
-
-# --- 2. MULTI-LANGUAGE ---
-texts = {
-    "ไทย": {
-        "contact_btn": "📱 ติดต่อแอดมิน (CEO)",
-        "msg_placeholder": "พิมพ์ข้อความที่ต้องการแจ้ง...",
-        "send_success": "ระบบเตรียมข้อความให้คุณแล้ว กรุณากดปุ่มด้านล่างเพื่อส่งทาง LINE",
-        "match_interest": "🎯 สนใจดีลนี้"
-    },
-    "English": {
-        "contact_btn": "📱 Contact Admin (CEO)",
-        "msg_placeholder": "Type your message here...",
-        "send_success": "Message prepared! Please click below to send via LINE.",
-        "match_interest": "🎯 Interested in this Deal"
-    },
-    "简体中文": {
-        "contact_btn": "📱 联系管理员 (CEO)",
-        "msg_placeholder": "在此输入您的留言...",
-        "send_success": "消息已准备好！请点击下方通过 LINE 发送。",
-        "match_interest": "🎯 对此交易感兴趣"
-    }
+# --- 2. DATABASE ---
+USER_CREDENTIALS = {
+    "admin": {"password": "789", "role": "CEO", "name": "CEO Master"},
+    "seller": {"password": "123", "role": "Seller", "name": "Thai Supplier"},
+    "buyer": {"password": "456", "role": "Buyer", "name": "Global Investor"}
 }
 
-# --- [ส่วน Login และ Session State เหมือนเดิม แต่เพิ่มการเช็คภาษา] ---
+# --- 3. SESSION STATE ---
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
     st.session_state['role'] = None
     st.session_state['lang'] = "ไทย"
 
-# (ข้ามส่วน Login ไปที่หน้าแสดงผลหลัก)
-if st.session_state['logged_in']:
-    curr_lang = st.session_state['lang']
-    t = texts[curr_lang]
-    role = st.session_state['role']
-
-    # --- เพิ่มปุ่มใน Sidebar สำหรับทุก Role ---
-    st.sidebar.divider()
-    st.sidebar.subheader(t['contact_btn'])
-    user_msg = st.sidebar.text_area(t['msg_placeholder'], height=100)
-    
-    if st.sidebar.button("📤 Send Message"):
-        if user_msg:
-            # สร้าง Link สำหรับส่งข้อความเข้า LINE
-            st.sidebar.success(t['send_success'])
-            st.sidebar.markdown(f"[![Line](https://img.shields.io/badge/LINE-00C300?style=for-the-badge&logo=line&logoColor=white)]({LINE_ADMIN_URL})")
+# --- 4. LOGIN PAGE ---
+if not st.session_state['logged_in']:
+    st.title("🔐 Login System")
+    user = st.text_input("Username")
+    pw = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if user in USER_CREDENTIALS and USER_CREDENTIALS[user]["password"] == pw:
+            st.session_state['logged_in'] = True
+            st.session_state['role'] = USER_CREDENTIALS[user]["role"]
+            st.rerun()
         else:
-            st.sidebar.error("กรุณาพิมพ์ข้อความก่อนส่ง")
+            st.error("Invalid Username or Password")
+    st.stop()
 
-    # --- หน้าต่างสำหรับ Buyer (ผู้ซื้อ) เพิ่มปุ่ม "สนใจดีล" ---
-    if role == "Buyer":
-        st.title("🛒 Global Buyer Marketplace")
-        # ตัวอย่างข้อมูลสินค้า
-        items = [{"สินค้า": "Sugar ICUMSA 45", "ราคา": "$4xx/MT"}, {"สินค้า": "Frozen Chicken", "ราคา": "Market Price"}]
-        for item in items:
-            with st.expander(f"📦 {item['สินค้า']}"):
-                st.write(f"ราคาประมาณการ: {item['ราคา']}")
-                if st.button(f"{t['match_interest']} ({item['สินค้า']})"):
-                    st.toast(f"บันทึกความสนใจใน {item['สินค้า']} แล้ว แอดมินจะติดต่อกลับ!")
-                    # ในอนาคตจะเชื่อมต่อ Database เพื่อเก็บ Log ตรงนี้
+# --- 5. MAIN APP ---
+role = st.session_state['role']
+lang = st.sidebar.selectbox("🌐 Language", ["ไทย", "English", "简体中文"])
 
-    # --- หน้าต่างสำหรับ CEO (แอดมิน) ---
-    elif role == "CEO":
-        st.title("📊 CEO Master Control")
-        st.success("📢 ระบบแจ้งเตือน: ขณะนี้การแจ้งเตือนจะใช้ผ่าน LINE Messaging API แทน Notify เพื่อความเสถียร")
-        
-        # ส่วนแสดงผล Log การติดต่อ
-        st.subheader("📝 รายการติดต่อจากผู้ใช้งาน (Logs)")
-        mock_logs = pd.DataFrame([
-            {"เวลา": "10:30", "จาก": "Buyer_China", "เรื่อง": "สนใจน้ำตาล 50,000 ตัน"},
-            {"เวลา": "11:15", "จาก": "Seller_Thai", "เรื่อง": "อัปเดตสต็อกไก่แปรรูป"}
-        ])
-        st.table(mock_logs)
+if st.sidebar.button("Log out"):
+    st.session_state['logged_in'] = False
+    st.rerun()
+
+# --- CONTACT CEO BUTTON (ปุ่มทัก LINE) ---
+st.sidebar.divider()
+st.sidebar.subheader("📱 Contact CEO")
+line_msg = st.sidebar.text_area("ข้อความถึง CEO (Message)", height=100)
+# ใส่ Link LINE OA หรือ LINE ส่วนตัวของคุณที่นี่
+my_line_link = "https://line.me/ti/p/~YOUR_ID" 
+
+if st.sidebar.button("ส่งข้อความ (Send)"):
+    if line_msg:
+        st.sidebar.success("ระบบบันทึกข้อความแล้ว กรุณากดปุ่มด้านล่างเพื่อยืนยันส่งใน LINE")
+        st.sidebar.markdown(f"[![Line](https://img.shields.io/badge/LINE-00C300?style=for-the-badge&logo=line&logoColor=white)]({my_line_link})")
+
+# --- DASHBOARDS ---
+if role == "CEO":
+    st.title("📊 ศูนย์ควบคุม CEO อัจฉริยะ")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("ค่าคอมมิชชั่นสะสม", "฿15.2M", "+2.1M")
+    c2.metric("ผู้ขายในระบบ", "42", "Verified")
+    c3.metric("ผู้ซื้อสนใจ", "128", "Hot")
+    
+    st.divider()
+    st.subheader("📝 รายการติดต่อล่าสุด (Logs)")
+    st.write("1. Buyer_China: สนใจน้ำตาล 50,000 ตัน")
+    st.write("2. Seller_TH: อัปเดตสต็อกไก่แช่แข็ง")
+
+elif role == "Seller":
+    st.title("🏭 ระบบผู้ขาย (Seller Portal)")
+    st.text_input("ชื่อสินค้าที่ต้องการเสนอ")
+    st.file_uploader("แนบใบรับรอง (SGS/Cert)")
+    st.button("ลงทะเบียนสินค้า")
+
+elif role == "Buyer":
+    st.title("🛒 ตลาดผู้ซื้อ (Buyer Marketplace)")
+    st.info("รายการสินค้าที่ตรวจสอบแล้ว")
+    df = pd.DataFrame({
+        "สินค้า": ["Sugar IC45", "Chicken Wings", "Diesel EN590"],
+        "สถานะ": ["✅ Verified", "✅ Verified", "✅ Verified"]
+    })
+    st.table(df)
