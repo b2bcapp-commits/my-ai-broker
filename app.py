@@ -1,60 +1,53 @@
 import streamlit as st
-import pandas as pd
 
-# --- 1. CONFIG & THEME ---
-st.set_page_config(page_title="Global Closer Engine", layout="wide", page_icon="🚀")
-
-# --- 2. MULTI-LANGUAGE DICTIONARY ---
-translations = {
-    "ไทย": {"welcome": "ระบบปิดดีลอัจฉริยะ", "sourcing": "ค้นหาซัพพลายเออร์", "doc": "สร้างเอกสารนายหน้า", "comm": "ค่าคอมมิชชั่น"},
-    "English": {"welcome": "Global Closer Engine", "sourcing": "Supplier Sourcing", "doc": "Broker Documents", "comm": "Commission"},
-    "简体中文": {"welcome": "全球成交引擎", "sourcing": "寻找供应商", "doc": "经纪人文件", "comm": "佣金管理"}
+# --- 1. ระบบฐานข้อมูลรหัสผ่าน (จำลอง) ---
+# ในอนาคตสามารถเชื่อมต่อกับฐานข้อมูลจริงได้
+USER_CREDENTIALS = {
+    "admin_ceo": {"password": "ceo789", "role": "CEO"},
+    "seller_01": {"password": "sale123", "role": "Seller"},
+    "buyer_99": {"password": "buy456", "role": "Buyer"}
 }
 
-# --- 3. SIDEBAR (เมนูควบคุม) ---
-st.sidebar.title("🎮 Command Center")
-selected_lang = st.sidebar.selectbox("🌐 Language / 语言", list(translations.keys()))
-lang = translations[selected_lang]
+# --- 2. ฟังก์ชันตรวจสอบการเข้าสู่ระบบ ---
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+    st.session_state['role'] = None
 
-menu = st.sidebar.radio("เมนูสถานีงาน", [lang['welcome'], lang['sourcing'], lang['doc'], lang['comm']])
-
-# --- 4. MAIN CONTENT ---
-
-if menu == lang['welcome']:
-    st.title(f"🌍 {lang['welcome']}")
-    st.markdown("### ยินดีต้อนรับ CEO! ระบบ AI พร้อมสนับสนุนการปิดดีลของคุณ")
-    st.info("💡 คำแนะนำ: เริ่มต้นด้วยการค้นหาซัพพลายเออร์ หรือร่างเอกสารขอเป็นนายหน้าในเมนูด้านซ้าย")
+if not st.session_state['logged_in']:
+    st.title("🔐 Global Brokerage Login")
+    user = st.text_input("Username")
+    pw = st.text_input("Password", type="password")
     
-    # ส่วนโชว์ Dashboard เบื้องต้น
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Active Deals", "12", "Sugar/Chicken")
-    c2.metric("Verified Suppliers", "85", "Global")
-    c3.metric("Expected Revenue", "฿10M+", "2026")
-
-elif menu == lang['sourcing']:
-    st.title(f"🏭 {lang['sourcing']}")
-    query = st.text_input("ระบุสินค้าที่ต้องการ (เช่น น้ำตาลบราซิล, ไก่แช่แข็ง, ที่ดินบางใหญ่)")
-    if query:
-        st.success(f"AI กำลังค้นหาซัพพลายเออร์ '{query}' ที่ผ่านการตรวจสอบ (Verified) ในฐานข้อมูล...")
-        # จำลองตารางซัพพลายเออร์
-        data = {"รายชื่อซัพพลายเออร์": ["โรงงาน A", "Export Corp B"], "สถานะ": ["Verified ✅", "Verified ✅"], "ใบรับรอง": ["SGS, HACCP", "ISO, Export License"]}
-        st.table(pd.DataFrame(data))
-
-elif menu == lang['doc']:
-    st.title(f"📜 {lang['doc']}")
-    st.subheader("สร้างหนังสือขอเป็นนายหน้า (AI-Driven Offer)")
+    if st.button("Login"):
+        if user in USER_CREDENTIALS and USER_CREDENTIALS[user]["password"] == pw:
+            st.session_state['logged_in'] = True
+            st.session_state['role'] = USER_CREDENTIALS[user]["role"]
+            st.rerun()
+        else:
+            st.error("รหัสผ่านไม่ถูกต้อง")
+else:
+    # --- 3. หน้าต่างหลังจาก Login แยกตามบทบาท ---
+    role = st.session_state['role']
+    st.sidebar.title(f"👤 Role: {role}")
     
-    with st.form("broker_form"):
-        name = st.text_input("ชื่อของคุณ (Broker Name)")
-        product = st.text_input("สินค้าที่ต้องการดีล")
-        rate = st.text_input("ค่าคอมมิชชั่น (เช่น 3% หรือ $5/MT)")
-        if st.form_submit_button("🚀 สร้างเอกสาร"):
-            doc_text = f"""หนังสือข้อเสนอตัวแทนอิสระ\nเรียน ผู้บริหาร\nข้าพเจ้า {name} ขอเสนอตัวเป็นนายหน้าคัดกรองผู้ซื้อให้กับสินค้า {product} ด้วยระบบ AI เพื่อความปลอดภัยและรวดเร็ว\nเงื่อนไข: {rate} Success Fee."""
-            st.text_area("ก๊อปปี้ไปส่งใน LINE/อีเมล:", value=doc_text, height=200)
-            st.download_button("📥 ดาวน์โหลดไฟล์เอกสาร", doc_text, file_name="Offer.txt")
+    if st.sidebar.button("Logout"):
+        st.session_state['logged_in'] = False
+        st.rerun()
 
-elif menu == lang['comm']:
-    st.title(f"💰 {lang['comm']}")
-    st.write("ตารางติดตามรายได้จากส่วนต่างและค่าคอมมิชชั่น")
-    # ตารางจำลอง
-    st.write("รายการดีลปัจจุบัน: [น้ำตาลบราซิล -> จีน] | สถานะ: รอเปิด L/C | ค่าคอมฯ คาดหวัง: $50,000")
+    if role == "CEO":
+        st.title("📊 CEO Dashboard (Master Control)")
+        st.write("มองเห็นการเคลื่อนไหวของทั้งผู้ซื้อและผู้ขาย")
+        # โค้ดส่วนจัดการค่าคอมมิชชั่นและอนุมัติเอกสาร
+
+    elif role == "Seller":
+        st.title("🏭 Seller Portal (ระบบผู้ขาย)")
+        st.write("อัปโหลดสินค้าและสถานะสต็อกของคุณ")
+        with st.expander("📥 ลงทะเบียนสินค้าใหม่"):
+            st.text_input("ชื่อสินค้า (เช่น น้ำมันปาล์ม)")
+            st.file_uploader("อัปโหลดใบรับรองคุณภาพ (SGS/ISO)")
+
+    elif role == "Buyer":
+        st.title("🛒 Buyer Portal (ระบบผู้ซื้อ)")
+        st.write("ค้นหาสินค้าที่ผ่านการตรวจสอบ Due Diligence แล้ว")
+        # แสดงรายการสินค้าที่ CEO อนุมัติแล้วเท่านั้น
+        st.info("รายการแนะนำ: น้ำตาล ICUMSA 45 (Verified)")
