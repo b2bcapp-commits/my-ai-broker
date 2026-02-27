@@ -6,20 +6,25 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# --- 1. SETTING ---
+# --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Global Trade Hub", layout="wide", page_icon="🌍")
 
-SENDER_EMAIL = "dropshipmillionaire19@gmail.com"
-SENDER_PASSWORD = "byyh oiii eibi cuov"
+# อัปเดตข้อมูลอีเมลใหม่ของบอส
+SENDER_EMAIL = "b2bcapp@gmail.com"
+SENDER_PASSWORD = "xfym dbzl gekk jwig"
 MY_WHATSAPP_LINK = "https://wa.me/66964474797?text=Hello%20CEO"
 
-# เชื่อมต่อฐานข้อมูล (Sheet1 สำหรับ User, Sheet2 สำหรับ Products)
+# เชื่อมต่อ Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 2. FUNCTIONS ---
+# --- 2. CORE FUNCTIONS ---
 def get_user_data():
     try: return conn.read(ttl=0)
     except: return pd.DataFrame(columns=["username", "password", "email", "role"])
+
+def save_to_sheets(updated_df):
+    conn.update(data=updated_df)
+    st.cache_data.clear()
 
 def send_email(receiver, subject, message):
     try:
@@ -54,7 +59,7 @@ with st.sidebar:
         st.divider()
         st.markdown(f'''<a href="{MY_WHATSAPP_LINK}" target="_blank"><button style="background-color: #25D366; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;">WhatsApp CEO</button></a>''', unsafe_allow_html=True)
 
-# --- 5. AUTH PAGES (Login/Sign Up/Forgot) ---
+# --- 5. AUTH PAGES ---
 if not st.session_state['logged_in']:
     if mode == "Login":
         st.title("🔐 เข้าสู่ระบบ")
@@ -75,64 +80,5 @@ if not st.session_state['logged_in']:
         nr = st.selectbox("Role", ["Buyer", "Seller"])
         if st.button("สร้างบัญชี"):
             new_data = pd.concat([df_users, pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])], ignore_index=True)
-            conn.update(data=new_data); st.cache_data.clear()
-            send_email(ne, "Welcome", f"Hi {nu}, welcome aboard!")
-            st.success("สำเร็จ!")
-    elif mode == "Forgot Password":
-        st.title("🔑 กู้คืนรหัสผ่าน")
-        target = st.text_input("อีเมล")
-        if st.button("ส่งรหัสผ่าน"):
-            match = df_users[df_users['email'] == target]
-            if not match.empty:
-                send_email(target, "Password recovery", f"Your password is: {match.iloc[0]['password']}")
-                st.success("ส่งแล้ว!")
-    st.stop()
-
-# --- 6. MAIN CONTENT (Marketplace & CEO Admin) ---
-st.title(f"📊 {st.session_state.role} Control Center")
-
-if st.session_state.role == "CEO" or st.session_state.username == "admin":
-    tab1, tab2, tab3 = st.tabs(["📡 AI Lead Radar", "👥 Members", "📦 Product Management"])
-    
-    with tab1:
-        st.header("🎯 ค้นหาลูกค้าใหม่")
-        kw, ct = st.text_input("สินค้า"), st.text_input("ประเทศ")
-        q = urllib.parse.quote(f"{kw} importer in {ct}")
-        st.markdown(f"[🏢 สแกนบริษัทบน Google Maps](https://www.google.com/maps/search/{q})")
-    
-    with tab2: st.dataframe(df_users)
-    
-    with tab3:
-        st.header("➕ เพิ่มสินค้าใหม่ลงหน้าร้าน")
-        with st.form("add_product"):
-            p_name = st.text_input("ชื่อสินค้า (e.g. Sugar IC45)")
-            p_price = st.text_input("ราคา/เงื่อนไข (e.g. $450/MT CIF)")
-            p_desc = st.text_area("รายละเอียดสินค้า")
-            if st.form_submit_button("ประกาศขายสินค้า"):
-                # ในที่นี้เราจะบันทึกลง Sheet เดิมโดยระบุ Role เป็น "Product" เพื่อเก็บข้อมูล
-                prod_row = pd.DataFrame([{"username": p_name, "password": p_price, "email": p_desc, "role": "Product_Listing"}])
-                conn.update(data=pd.concat([df_users, prod_row], ignore_index=True))
-                st.success("สินค้าถูกเพิ่มลง Marketplace แล้ว!")
-
-else: # ส่วนของ Buyer / Seller
-    st.header("🛒 Global Marketplace")
-    st.write("เลือกสินค้าที่คุณต้องการ และกดปุ่มสนใจเพื่อให้เจ้าหน้าที่ติดต่อกลับ")
-    
-    products = df_users[df_users['role'] == "Product_Listing"]
-    if products.empty:
-        st.info("ขออภัย ขณะนี้ยังไม่มีรายการสินค้า")
-    else:
-        for index, row in products.iterrows():
-            with st.container():
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.subheader(f"📦 {row['username']}")
-                    st.write(f"**ราคา/เงื่อนไข:** {row['password']}")
-                    st.write(f"**รายละเอียด:** {row['email']}")
-                with col2:
-                    if st.button(f"สนใจสินค้า", key=index):
-                        # ส่งอีเมลหา CEO
-                        alert_msg = f"User: {st.session_state.username} ({st.session_state.user_email}) สนใจสินค้า: {row['username']}"
-                        send_email("dropshipmillionaire19@gmail.com", "New Inquiry!", alert_msg)
-                        st.success("เราได้รับความสนใจของคุณแล้ว CEO จะติดต่อกลับโดยเร็วที่สุด")
-                st.divider()
+            save_to_sheets(new_data)
+            send_email(ne, "
