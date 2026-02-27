@@ -85,7 +85,6 @@ if not st.session_state['logged_in']:
                 st.rerun()
             else:
                 st.error("ข้อมูลไม่ถูกต้อง")
-    # ... (ส่วน Sign Up และ Forgot Password คงเดิมตามที่บอสมี) ...
     elif mode == "Sign Up":
         st.title("📝 Register")
         nu, ne, np = st.text_input("Username"), st.text_input("Email"), st.text_input("Password", type="password")
@@ -107,6 +106,60 @@ if not st.session_state['logged_in']:
 # --- 6. MAIN CONTENT ---
 st.title(f"📊 {st.session_state.role} Command Center")
 
-# แยกส่วนจัดการ (Tabs)
 if st.session_state.role == "CEO":
     t1, t2, t3 = st.tabs(["📡 AI Lead Radar", "👥 Members Management", "📦 Product Management"])
+    
+    with t1:
+        st.subheader("🎯 ระบบค้นหาลูกค้า (Global Radar)")
+        kw = st.text_input("ระบุสินค้า", "Sugar ICUMSA 45")
+        ct = st.text_input("ระบุประเทศ", "Dubai")
+        q = urllib.parse.quote(f"{kw} importer in {ct}")
+        st.markdown(f"👉 [สแกนเป้าหมายบน Google Maps](https://www.google.com/maps/search/{q})")
+
+    with t2:
+        st.subheader("👥 รายชื่อสมาชิกทั้งหมด")
+        st.dataframe(df_users, use_container_width=True)
+
+    with t3:
+        st.subheader("➕ เพิ่มสินค้าใหม่")
+        with st.form("add_p"):
+            p_n = st.text_input("ชื่อสินค้า")
+            p_v = st.text_input("ราคา/เงื่อนไข")
+            p_d = st.text_area("รายละเอียด")
+            if st.form_submit_button("Post Product"):
+                new_p = pd.DataFrame([{"username": p_n, "password": p_v, "email": p_d, "role": "Product_Listing"}])
+                save_to_sheets(pd.concat([df_users, new_p], ignore_index=True))
+                st.success("เพิ่มสินค้าเรียบร้อย")
+                st.rerun()
+
+    # --- ส่วนที่เพิ่มให้ CEO เห็นสินค้าหน้าร้านทันที ---
+    st.divider()
+    st.header("🛒 Marketplace Preview (หน้าร้านจริงที่ Buyer จะเห็น)")
+    prods = df_users[df_users['role'] == "Product_Listing"]
+    if prods.empty:
+        st.info("ยังไม่มีสินค้าในระบบ")
+    else:
+        for i, row in prods.iterrows():
+            with st.container():
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.subheader(f"📦 {row['username']}")
+                    st.write(f"**ราคา:** {row['password']}")
+                    st.write(f"**รายละเอียด:** {row['email']}")
+                with c2:
+                    st.button("Inquiry (Buyer View)", key=f"preview_{i}", disabled=True)
+                st.divider()
+
+else: # สำหรับ Buyer/Seller
+    st.header("🛒 Global Marketplace")
+    prods = df_users[df_users['role'] == "Product_Listing"]
+    if prods.empty:
+        st.info("ขออภัย ขณะนี้ยังไม่มีสินค้าประกาศขาย")
+    else:
+        for i, row in prods.iterrows():
+            with st.expander(f"📦 {row['username']} - {row['password']}"):
+                st.write(row['email'])
+                if st.button("I am Interested", key=f"buy_{i}"):
+                    msg = f"User {st.session_state.username} ({st.session_state.user_email}) สนใจสินค้า {row['username']}"
+                    send_email(SENDER_EMAIL, "New Inquiry!", msg)
+                    st.success("ส่งความสนใจให้ CEO เรียบร้อยแล้ว!")
