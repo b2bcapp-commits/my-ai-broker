@@ -9,13 +9,15 @@ from email.mime.multipart import MIMEMultipart
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Global Trade Hub", layout="wide", page_icon="🌍")
 
-# อัปเดตข้อมูลอีเมลใหม่ของบอสตามที่แจ้ง
 SENDER_EMAIL = "b2bcapp@gmail.com"
 SENDER_PASSWORD = "xfym dbzl gekk jwig"
 MY_WHATSAPP_LINK = "https://wa.me/66964474797?text=Hello%20CEO"
 
 # เชื่อมต่อ Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection)
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except:
+    st.error("กรุณาตั้งค่า Spreadsheet ในระบบ Secrets ก่อนครับ")
 
 # --- 2. CORE FUNCTIONS ---
 def get_user_data():
@@ -25,8 +27,12 @@ def get_user_data():
         return pd.DataFrame(columns=["username", "password", "email", "role"])
 
 def save_to_sheets(updated_df):
-    conn.update(data=updated_df)
-    st.cache_data.clear()
+    try:
+        conn.update(data=updated_df)
+        st.cache_data.clear()
+        return True
+    except:
+        return False
 
 def send_email(receiver, subject, message):
     try:
@@ -41,19 +47,20 @@ def send_email(receiver, subject, message):
         server.sendmail(SENDER_EMAIL, receiver, msg.as_string())
         server.quit()
         return True
-    except Exception as e:
+    except:
         return False
 
 # --- 3. UI STATE ---
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# --- 4. SIDEBAR ---
+# --- 4. SIDEBAR NAVIGATION ---
 df_users = get_user_data()
+
 with st.sidebar:
-    st.title("🌐 Global Hub")
+    st.title("🌐 Menu")
     if not st.session_state['logged_in']:
-        mode = st.radio("เมนูการเข้าถึง", ["Login", "Sign Up", "Forgot Password"])
+        mode = st.radio("Access", ["Login", "Sign Up", "Forgot Password"])
     else:
         st.success(f"User: {st.session_state.username}")
         if st.button("Logout"):
@@ -62,7 +69,7 @@ with st.sidebar:
         st.divider()
         st.markdown(f'''<a href="{MY_WHATSAPP_LINK}" target="_blank"><button style="background-color: #25D366; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;">WhatsApp CEO</button></a>''', unsafe_allow_html=True)
 
-# --- 5. AUTH PAGES ---
+# --- 5. AUTHENTICATION PAGES ---
 if not st.session_state['logged_in']:
     if mode == "Login":
         st.title("🔐 เข้าสู่ระบบ")
@@ -77,62 +84,72 @@ if not st.session_state['logged_in']:
                 st.session_state.user_email = match.iloc[0]['email']
                 st.rerun()
             else:
-                st.error("ข้อมูลไม่ถูกต้อง (กรุณาเช็ค Username/Password หรือสมัครสมาชิกใหม่)")
-    
+                st.error("ข้อมูลไม่ถูกต้อง")
+
     elif mode == "Sign Up":
         st.title("📝 สมัครสมาชิก")
-        nu = st.text_input("Username")
-        ne = st.text_input("Email")
-        np = st.text_input("Password", type="password")
-        nr = st.selectbox("Role", ["Buyer", "Seller"])
-        if st.button("สร้างบัญชี"):
+        nu = st.text_input("New Username")
+        ne = st.text_input("Email Address")
+        np = st.text_input("New Password", type="password")
+        nr = st.selectbox("I am a", ["Buyer", "Seller"])
+        if st.button("Register"):
             if nu and ne and np:
-                new_data = pd.concat([df_users, pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])], ignore_index=True)
-                save_to_sheets(new_data)
-                send_email(ne, "Welcome to Trade Hub", f"Hi {nu}, your account is ready!")
-                st.success("สมัครสำเร็จ! กรุณาล็อกอิน")
-                st.balloons()
+                new_row = pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])
+                save_to_sheets(pd.concat([df_users, new_row], ignore_index=True))
+                send_email(ne, "Welcome", f"Hello {nu}, welcome to B2B Global Hub!")
+                st.success("ลงทะเบียนสำเร็จ!")
             else:
-                st.error("กรุณากรอกข้อมูลให้ครบ")
+                st.error("กรุณากรอกข้อมูลให้ครบทุกช่อง")
 
     elif mode == "Forgot Password":
         st.title("🔑 กู้คืนรหัสผ่าน")
-        target = st.text_input("ระบุอีเมลที่ลงทะเบียน")
-        if st.button("ส่งรหัสผ่าน"):
-            match = df_users[df_users['email'] == target]
+        target_email = st.text_input("ใส่อีเมลของคุณ")
+        if st.button("Send My Password"):
+            match = df_users[df_users['email'] == target_email]
             if not match.empty:
-                send_email(target, "Password Recovery", f"Your password is: {match.iloc[0]['password']}")
-                st.success("ส่งรหัสผ่านไปทางอีเมลแล้ว!")
+                send_email(target_email, "Recovery", f"Your password is: {match.iloc[0]['password']}")
+                st.success("ส่งข้อมูลไปทางอีเมลแล้วครับ")
             else:
-                st.error("ไม่พบอีเมลนี้ในฐานข้อมูล")
+                st.error("ไม่พบอีเมลนี้")
     st.stop()
 
-# --- 6. MAIN CONTENT ---
+# --- 6. DASHBOARD (CEO / MARKETPLACE) ---
 st.title(f"📊 {st.session_state.role} Command Center")
 
 if st.session_state.role == "CEO":
-    tab1, tab2, tab3 = st.tabs(["📡 AI Lead Radar", "👥 Members", "📦 Product Management"])
+    t1, t2, t3 = st.tabs(["🎯 Lead Radar", "👥 Members", "📦 Products"])
     
-    with tab1:
-        st.header("🎯 ค้นหาลูกค้าใหม่")
-        col1, col2 = st.columns(2)
-        with col1:
-            kw = st.text_input("สินค้า", "Sugar IC45")
-            ct = st.text_input("ประเทศ", "Dubai")
-        with col2:
-            st.write("🔍 ช่องทางเจาะข้อมูล:")
-            q = urllib.parse.quote(f"{kw} importer in {ct}")
-            st.markdown(f"[🏢 สแกนบริษัทบน Google Maps](https://www.google.com/maps/search/{q})")
+    with t1:
+        st.subheader("📡 ระบบค้นหาลูกค้าทั่วโลก")
+        kw = st.text_input("ระบุสินค้า", "Sugar")
+        ct = st.text_input("ระบุประเทศ", "Dubai")
+        query = urllib.parse.quote(f"{kw} importer in {ct}")
+        st.markdown(f"👉 [สแกนเป้าหมายบน Google Maps](https://www.google.com/maps/search/{query})")
     
-    with tab2:
-        st.dataframe(get_user_data(), use_container_width=True)
+    with t2:
+        st.dataframe(df_users, use_container_width=True)
     
-    with tab3:
-        st.header("➕ เพิ่มสินค้าใหม่ลงหน้าร้าน")
-        with st.form("add_product"):
-            p_name = st.text_input("ชื่อสินค้า (e.g. Sugar IC45)")
-            p_price = st.text_input("ราคา/เงื่อนไข (e.g. $450/MT CIF)")
-            p_desc = st.text_area("รายละเอียดสินค้า")
-            if st.form_submit_button("ประกาศขาย"):
-                prod_row = pd.DataFrame([{"username": p_name, "password": p_price, "email": p_desc, "role": "Product_Listing"}])
-                save_to_sheets(pd.concat([df_users, prod_
+    with t3:
+        st.subheader("➕ เพิ่มสินค้าใหม่")
+        with st.form("add_p"):
+            p_n = st.text_input("ชื่อสินค้า")
+            p_v = st.text_input("ราคา/เงื่อนไข")
+            p_d = st.text_area("รายละเอียด")
+            if st.form_submit_button("Post Product"):
+                new_p = pd.DataFrame([{"username": p_n, "password": p_v, "email": p_d, "role": "Product_Listing"}])
+                save_to_sheets(pd.concat([df_users, new_p], ignore_index=True))
+                st.success("เพิ่มสินค้าเรียบร้อย")
+
+else:
+    st.header("🛒 Global Marketplace")
+    prods = df_users[df_users['role'] == "Product_Listing"]
+    if prods.empty:
+        st.info("ยังไม่มีสินค้าในระบบ")
+    else:
+        for i, row in prods.iterrows():
+            with st.expander(f"📦 {row['username']} - {row['password']}"):
+                st.write(row['email'])
+                if st.button("I am Interested", key=i):
+                    msg = f"User {st.session_state.username} สนใจสินค้า {row['username']}"
+                    send_email(SENDER_EMAIL, "New Inquiry!", msg)
+                    st.success("แจ้ง CEO เรียบร้อยแล้ว")
