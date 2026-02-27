@@ -4,17 +4,17 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# --- 1. CONFIGURATION (ข้อมูลของ CEO) ---
+# --- 1. SETTINGS (ข้อมูลของ CEO) ---
 st.set_page_config(page_title="Global Trade Hub", layout="wide", page_icon="🌍")
 
-# ข้อมูลสำหรับส่งอีเมล (จากรูป image_bf317a และ image_bf387c)
-SENDER_EMAIL = "b2bcapp@gmail.com"  
-SENDER_PASSWORD = "byyh oiii eibi cuov" 
+# ข้อมูลอีเมลจากภาพ image_bf317a และ image_bf387c
+SENDER_EMAIL = "dropshipmillionaire19@gmail.com"  
+SENDER_PASSWORD = "byyh oiii eibi cuov" # App Password 16 หลัก
 
 MY_LINE_LINK = "https://line.me/ti/p/~YOUR_LINE_ID"
-MY_WHATSAPP_LINK = "https://wa.me/66964474797?text=สวัสดีครับ%20ผมสนใจดีลการค้าครับ"
+MY_WHATSAPP_LINK = "https://wa.me/66964474797?text=Hello%20CEO,%20I%20am%20interested%20in%20trading."
 
-# --- 2. EMAIL FUNCTION ---
+# --- 2. EMAIL CORE ---
 def send_email(receiver_email, subject, body):
     try:
         msg = MIMEMultipart()
@@ -23,58 +23,60 @@ def send_email(receiver_email, subject, body):
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
         
-        # เชื่อมต่อ Gmail Server
         server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.set_debuglevel(0) # ปิด log เพื่อความสะอาด
         server.starttls()
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.sendmail(SENDER_EMAIL, receiver_email, msg.as_string())
         server.quit()
-        return True, "Success"
+        return True, "Email Sent Successfully"
     except Exception as e:
-        return False, str(e)
+        return False, f"Email Error: {str(e)}"
 
-# --- 3. DATABASE (จำลองระบบสมาชิก) ---
+# --- 3. PERSISTENT DATABASE ---
+# หมายเหตุ: ในขั้นตอนนี้เราใช้ Session State ก่อน หากต้องการถาวรจริง 
+# บอสต้องต่อ Google Sheets ผ่าน st.connection('gsheets') ครับ
 if 'user_db' not in st.session_state:
     st.session_state['user_db'] = {
-        "admin": {"password": "789", "role": "CEO", "email": SENDER_EMAIL}
+        "admin": {"password": "789", "role": "CEO", "email": SENDER_EMAIL},
+        "ptwpro": {"password": "password", "role": "Buyer", "email": "dropshipmillionaire19@gmail.com"}
     }
 
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# --- 4. SIDEBAR ---
+# --- 4. NAVIGATION ---
 with st.sidebar:
-    st.title("🌐 Global Trade Hub")
+    st.title("🌐 Global Hub")
     if not st.session_state['logged_in']:
-        mode = st.radio("Access Menu", ["Login", "Sign Up", "Forgot Password"])
+        mode = st.radio("Menu", ["Login", "Sign Up", "Forgot Password"])
     else:
-        st.write(f"Logged in as: **{st.session_state['current_user']}**")
+        st.write(f"Logged in: **{st.session_state['current_user']}**")
         if st.button("Logout"):
             st.session_state['logged_in'] = False
             st.rerun()
         st.divider()
-        st.subheader("📱 ติดต่อฝ่ายสนับสนุน (CEO)")
+        st.subheader("📱 Direct Support")
         # ปุ่ม WhatsApp สากล
         st.markdown(f'''
         <a href="{MY_WHATSAPP_LINK}" target="_blank">
-            <button style="background-color: #25D366; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold; margin-bottom: 5px;">
+            <button style="background-color: #25D366; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; cursor: pointer; font-weight: bold; margin-bottom: 8px;">
                 WhatsApp (+66 964474797)
             </button>
         </a>
         ''', unsafe_allow_html=True)
-        # ปุ่ม LINE
         st.markdown(f'''
         <a href="{MY_LINE_LINK}" target="_blank">
-            <button style="background-color: #00c300; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;">
-                Chat via LINE
+            <button style="background-color: #00c300; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; cursor: pointer; font-weight: bold;">
+                Contact via LINE
             </button>
         </a>
         ''', unsafe_allow_html=True)
 
-# --- 5. AUTH PAGES ---
+# --- 5. CORE PAGES ---
 if not st.session_state['logged_in']:
     if mode == "Login":
-        st.title("🔐 Login")
+        st.title("🔐 เข้าสู่ระบบ")
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
         if st.button("Sign In"):
@@ -84,63 +86,61 @@ if not st.session_state['logged_in']:
                 st.session_state['current_user'] = user
                 st.rerun()
             else:
-                st.error("❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
+                st.error("❌ ข้อมูลไม่ถูกต้อง")
 
     elif mode == "Sign Up":
-        st.title("📝 Register New Account")
-        new_user = st.text_input("Username (ชื่อผู้ใช้)")
-        new_email = st.text_input("Email (อีเมลสำหรับรับแจ้งเตือน)")
-        new_pw = st.text_input("Set Password (ตั้งรหัสผ่าน)", type="password")
-        new_role = st.selectbox("I am a (บทบาท)", ["Buyer", "Seller"])
+        st.title("📝 สมัครสมาชิกใหม่")
+        new_u = st.text_input("Username")
+        new_e = st.text_input("Email")
+        new_p = st.text_input("Password", type="password")
+        new_r = st.selectbox("Role", ["Buyer", "Seller"])
         
         if st.button("Create Account"):
-            if new_user and new_email and new_pw:
-                # บันทึกข้อมูล
-                st.session_state['user_db'][new_user] = {"password": new_pw, "role": new_role, "email": new_email}
+            if new_u and new_e and new_p:
+                st.session_state['user_db'][new_u] = {"password": new_p, "role": new_r, "email": new_e}
                 
-                # ส่งอีเมลยืนยัน
-                subject = "Registration Successful - Global Trade Hub"
-                body = f"เรียนคุณ {new_user},\n\nการลงทะเบียนในบทบาท {new_role} สำเร็จเรียบร้อยแล้ว\nคุณสามารถเข้าใช้งานระบบได้ทันที\n\nขอบคุณที่ใช้บริการ\nCEO Master"
+                # ส่งอีเมล
+                sub = "Registration Confirmed - Global Trade Hub"
+                content = f"Welcome {new_u}!\n\nYou are registered as {new_r}.\nAccess the platform anytime."
+                status, msg = send_email(new_e, sub, content)
                 
-                success, error_msg = send_email(new_email, subject, body)
-                if success:
-                    st.success(f"✅ ลงทะเบียนสำเร็จ! ส่งอีเมลยืนยันไปที่ {new_email} แล้ว")
+                if status:
+                    st.success(f"✅ สำเร็จ! ส่งอีเมลยืนยันไปที่ {new_e} แล้ว")
                     st.balloons()
                 else:
-                    st.warning(f"ลงทะเบียนสำเร็จ แต่ระบบอีเมลขัดข้อง: {error_msg}")
+                    st.warning(f"ลงทะเบียนสำเร็จ แต่ระบบแจ้งเตือนอีเมลติดขัด: {msg}")
             else:
-                st.error("กรุณากรอกข้อมูลให้ครบทุกช่อง")
+                st.error("กรุณากรอกข้อมูลให้ครบ")
 
     elif mode == "Forgot Password":
         st.title("🔑 กู้คืนรหัสผ่าน")
-        f_email = st.text_input("กรอกอีเมลที่ลงทะเบียนไว้")
-        if st.button("ส่งรหัสผ่านเข้าอีเมล"):
+        f_email = st.text_input("ระบุอีเมลที่ลงทะเบียน")
+        if st.button("Request Recovery"):
             found = False
             for u, data in st.session_state['user_db'].items():
                 if data['email'] == f_email:
                     found = True
-                    subject = "Your Password Recovery"
-                    body = f"สวัสดีคุณ {u},\n\nรหัสผ่านของคุณคือ: {data['password']}\nกรุณาเข้าสู่ระบบและเปลี่ยนรหัสผ่านเพื่อความปลอดภัย"
-                    send_email(f_email, subject, body)
+                    sub = "Your Password Recovery"
+                    content = f"สวัสดี {u},\n\nรหัสผ่านของคุณคือ: {data['password']}"
+                    send_email(f_email, sub, content)
                     break
             if found:
-                st.success("📩 ระบบส่งข้อมูลรหัสผ่านไปยังอีเมลของคุณแล้ว")
+                st.success("📩 ข้อมูลรหัสผ่านถูกส่งไปยังอีเมลของคุณแล้ว")
             else:
-                st.error("ไม่พบอีเมลนี้ในระบบสมัครสมาชิก")
+                st.error("ไม่พบอีเมลนี้ในฐานข้อมูล")
     st.stop()
 
-# --- 6. MAIN CONTENT ---
-current_role = st.session_state['user_db'][st.session_state['current_user']]['role']
+# --- 6. USER DASHBOARDS ---
+role = st.session_state['user_db'][st.session_state['current_user']]['role']
 
-if current_role == "CEO":
+if role == "CEO":
     st.title("📊 CEO Command Center")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Users", len(st.session_state['user_db']))
-    col2.metric("System Status", "Live")
-    col3.metric("Contact Info", "WhatsApp Ready")
-    
-    st.subheader("👥 รายชื่อสมาชิกทั้งหมด (Database)")
+    col1, col2 = st.columns(2)
+    col1.metric("สมาชิกทั้งหมด", len(st.session_state['user_db']))
+    col2.metric("สถานะ WhatsApp", "เชื่อมต่อแล้ว")
+    st.subheader("📋 ฐานข้อมูลสมาชิก (User DB)")
     st.table(pd.DataFrame(st.session_state['user_db']).T)
 else:
-    st.title(f"🌍 {current_role} Dashboard")
-    st.write(f"สวัสดีคุณ **{st.session_state['current_user']}** ยินดีต้อนรับสู่ระบบจับคู่การค้าระดับโลก")
+    st.title(f"🌍 {role} Dashboard")
+    st.write(f"ยินดีต้อนรับคุณ **{st.session_state['current_user']}** เข้าสู่แพลตฟอร์มการค้าระดับโลก")
+    st.info("คุณสามารถเลือกดูดีลสินค้าที่ได้รับการรับรองได้จากเมนูด้านซ้าย (เร็วๆ นี้)")
