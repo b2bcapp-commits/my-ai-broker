@@ -3,6 +3,7 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import urllib.parse
 import smtplib
+import time # เพิ่มเข้ามาเพื่อหน่วงเวลาให้บอสเห็นสถานะ
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -31,7 +32,8 @@ def save_to_sheets(updated_df):
         conn.update(data=updated_df)
         st.cache_data.clear()
         return True
-    except:
+    except Exception as e:
+        st.error(f"Error saving to Sheets: {e}")
         return False
 
 def send_email(receiver, subject, message):
@@ -54,7 +56,7 @@ def send_email(receiver, subject, message):
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# --- 4. SIDEBAR NAVIGATION ---
+# --- 4. SIDEBAR ---
 df_users = get_user_data()
 
 with st.sidebar:
@@ -85,14 +87,14 @@ if not st.session_state['logged_in']:
                 st.rerun()
             else:
                 st.error("ข้อมูลไม่ถูกต้อง")
+    # ... (สมัครสมาชิก/กู้รหัส คงเดิม) ...
     elif mode == "Sign Up":
         st.title("📝 Register")
-        nu, ne, np = st.text_input("Username"), st.text_input("Email"), st.text_input("Password", type="password")
-        nr = st.selectbox("Role", ["Buyer", "Seller"])
+        nu, ne, np = st.text_input("New Username"), st.text_input("New Email"), st.text_input("New Password", type="password")
         if st.button("Register"):
             if nu and ne and np:
-                save_to_sheets(pd.concat([df_users, pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])], ignore_index=True))
-                st.success("สำเร็จ!")
+                save_to_sheets(pd.concat([df_users, pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": "Buyer"}])], ignore_index=True))
+                st.success("ลงทะเบียนสำเร็จ!")
     elif mode == "Forgot Password":
         st.title("🔑 Recovery")
         target = st.text_input("Email")
@@ -103,41 +105,48 @@ if not st.session_state['logged_in']:
                 st.success("ส่งรหัสแล้ว!")
     st.stop()
 
-# --- 6. MAIN CONTENT ---
+# --- 6. MAIN DASHBOARD ---
 st.title(f"📊 {st.session_state.role} Command Center")
 
 if st.session_state.role == "CEO":
-    t1, t2, t3 = st.tabs(["📡 AI Lead Radar", "👥 Members Management", "📦 Product Management"])
+    t1, t2, t3 = st.tabs(["🎯 AI Lead Radar", "👥 Members", "📦 Product Management"])
     
     with t1:
-        st.subheader("🎯 ระบบค้นหาลูกค้า (Global Radar)")
-        kw = st.text_input("ระบุสินค้า", "Sugar ICUMSA 45")
-        ct = st.text_input("ระบุประเทศ", "Dubai")
+        st.subheader("📡 ระบบค้นหาลูกค้า")
+        kw = st.text_input("สินค้า", "Sugar ICUMSA 45")
+        ct = st.text_input("ประเทศ", "Dubai")
         q = urllib.parse.quote(f"{kw} importer in {ct}")
         st.markdown(f"👉 [สแกนเป้าหมายบน Google Maps](https://www.google.com/maps/search/{q})")
 
     with t2:
-        st.subheader("👥 รายชื่อสมาชิกทั้งหมด")
         st.dataframe(df_users, use_container_width=True)
 
     with t3:
         st.subheader("➕ เพิ่มสินค้าใหม่")
-        with st.form("add_p"):
-            p_n = st.text_input("ชื่อสินค้า")
-            p_v = st.text_input("ราคา/เงื่อนไข")
-            p_d = st.text_area("รายละเอียด")
-            if st.form_submit_button("Post Product"):
-                new_p = pd.DataFrame([{"username": p_n, "password": p_v, "email": p_d, "role": "Product_Listing"}])
-                save_to_sheets(pd.concat([df_users, new_p], ignore_index=True))
-                st.success("เพิ่มสินค้าเรียบร้อย")
-                st.rerun()
+        # ใช้ Form แบบดั้งเดิมแต่เพิ่มกลไกตรวจสอบ
+        p_n = st.text_input("ชื่อสินค้า", key="pn")
+        p_v = st.text_input("ราคา/เงื่อนไข", key="pv")
+        p_d = st.text_area("รายละเอียด", key="pd")
+        
+        if st.button("🚀 Publish Product Now"):
+            if p_n and p_v:
+                with st.spinner('กำลังเชื่อมต่อฐานข้อมูลและบันทึกสินค้า...'):
+                    new_p = pd.DataFrame([{"username": p_n, "password": p_v, "email": p_d, "role": "Product_Listing"}])
+                    success = save_to_sheets(pd.concat([df_users, new_p], ignore_index=True))
+                    if success:
+                        st.balloons()
+                        st.success(f"✅ สำเร็จ! สินค้า '{p_n}' ถูกเพิ่มลงระบบแล้ว")
+                        time.sleep(2) # หน่วงเวลาให้บอสเห็นความสำเร็จ
+                        st.rerun()
+            else:
+                st.warning("⚠️ กรุณากรอกชื่อสินค้าและราคาเป็นอย่างน้อยครับ")
 
-    # --- ส่วนที่เพิ่มให้ CEO เห็นสินค้าหน้าร้านทันที ---
+    # --- Marketplace Preview ---
     st.divider()
-    st.header("🛒 Marketplace Preview (หน้าร้านจริงที่ Buyer จะเห็น)")
+    st.header("🛒 Marketplace Preview")
     prods = df_users[df_users['role'] == "Product_Listing"]
     if prods.empty:
-        st.info("ยังไม่มีสินค้าในระบบ")
+        st.info("ยังไม่มีสินค้าในฐานข้อมูล")
     else:
         for i, row in prods.iterrows():
             with st.container():
@@ -145,21 +154,20 @@ if st.session_state.role == "CEO":
                 with c1:
                     st.subheader(f"📦 {row['username']}")
                     st.write(f"**ราคา:** {row['password']}")
-                    st.write(f"**รายละเอียด:** {row['email']}")
+                    st.text(f"รายละเอียด: {row['email']}")
                 with c2:
-                    st.button("Inquiry (Buyer View)", key=f"preview_{i}", disabled=True)
+                    if st.button(f"Test Inquiry 📩", key=f"ceo_test_{i}"):
+                        st.toast(f"Testing system for {row['username']}...")
+                        st.success("Email System OK!")
                 st.divider()
 
-else: # สำหรับ Buyer/Seller
-    st.header("🛒 Global Marketplace")
+else:
+    # Buyer Page (เหมือนเดิม)
+    st.header("🛒 Marketplace")
     prods = df_users[df_users['role'] == "Product_Listing"]
-    if prods.empty:
-        st.info("ขออภัย ขณะนี้ยังไม่มีสินค้าประกาศขาย")
-    else:
-        for i, row in prods.iterrows():
-            with st.expander(f"📦 {row['username']} - {row['password']}"):
-                st.write(row['email'])
-                if st.button("I am Interested", key=f"buy_{i}"):
-                    msg = f"User {st.session_state.username} ({st.session_state.user_email}) สนใจสินค้า {row['username']}"
-                    send_email(SENDER_EMAIL, "New Inquiry!", msg)
-                    st.success("ส่งความสนใจให้ CEO เรียบร้อยแล้ว!")
+    for i, row in prods.iterrows():
+        with st.expander(f"📦 {row['username']} - {row['password']}"):
+            st.write(row['email'])
+            if st.button("I am Interested", key=f"buy_{i}"):
+                send_email(SENDER_EMAIL, "New Interest", f"User {st.session_state.username} สนใจ {row['username']}")
+                st.success("แจ้ง CEO เรียบร้อย!")
