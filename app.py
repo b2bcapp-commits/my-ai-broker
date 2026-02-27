@@ -2,50 +2,48 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# --- 1. SETTINGS ---
-st.set_page_config(page_title="Power Reset Mode", layout="wide")
+st.set_page_config(page_title="CEO Dashboard", layout="wide")
 
-# เชื่อมต่อฐานข้อมูล
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    # บังคับให้อ่านค่าใหม่ล่าสุดเสมอ (ttl=0)
-    df = conn.read(ttl=0)
-except Exception as e:
-    st.error(f"การเชื่อมต่อผิดพลาด: {e}")
-    st.stop()
+# --- FORCE CONNECT FUNCTION ---
+def load_data():
+    try:
+        # เชื่อมต่อแบบไม่ใช้ Cache เพื่อป้องกันค่าค้าง
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        return conn.read(ttl=0)
+    except Exception as e:
+        st.error(f"⚠️ กำลังพยายามเชื่อมต่อใหม่... (Error: {e})")
+        return None
 
-# --- 2. DEBUG MODE (บอสจะเห็นว่าแอปเห็นข้อมูลอะไรอยู่) ---
-with st.expander("🔍 ตรวจสอบฐานข้อมูล (Debug)"):
-    st.write("แอปมองเห็นข้อมูลใน Google Sheets ตามนี้ครับ:")
-    st.dataframe(df)
+# --- UI LOGIC ---
+st.title("🌍 BethofenPro Command Center")
 
-# --- 3. LOGIN LOGIC ---
-st.title("🔐 เข้าสู่ระบบ (BethofenPro)")
+df = load_data()
 
-# พยายามจับคู่ชื่อหัวตาราง (ไม่ว่าบอสจะพิมพ์ไทยหรืออังกฤษ)
-u_input = st.text_input("Username")
-p_input = st.text_input("Password", type="password")
-
-if st.button("Sign In"):
-    # ตรวจสอบว่ามีข้อมูล BethofenPro ไหม
-    # เราจะค้นหาจากทุกช่องในตาราง
-    found = False
-    for index, row in df.iterrows():
-        # เช็คว่าแถวไหนมี BethofenPro และรหัส Pronet@1234
-        if str(u_input).strip() in [str(val).strip() for val in row.values] and \
-           str(p_input).strip() in [str(val).strip() for val in row.values]:
-            found = True
-            st.session_state.logged_in = True
-            st.session_state.username = u_input
-            break
+if df is not None:
+    st.success("✅ เชื่อมต่อฐานข้อมูลสำเร็จ!")
     
-    if found:
-        st.success("✅ ล็อกอินสำเร็จ!")
-        st.balloons()
-        # ส่วนแสดงผลของ CEO
-        st.divider()
-        st.header(f"Welcome back, {u_input}!")
-        st.write("ตอนนี้แอปเชื่อมต่อกับ Google Sheets ของบอสได้สมบูรณ์แล้วครับ")
-    else:
-        st.error("❌ ยังไม่พบชื่อนี้ในระบบ หรือข้อมูลไม่ตรงกับใน Sheets")
-        st.info("คำแนะนำ: ตรวจสอบในตาราง Debug ด้านบนว่ามีชื่อ BethofenPro หรือยัง")
+    # ปุ่มทางลัดเข้าหน้าจัดการสินค้าทันที ไม่ต้อง Login ซ้ำ
+    tab1, tab2 = st.tabs(["📦 Marketplace Management", "👥 Database View"])
+    
+    with tab1:
+        st.subheader("➕ เพิ่มสินค้าใหม่ (ส่งตรงถึง Sheets)")
+        with st.form("quick_post", clear_on_submit=True):
+            p_name = st.text_input("ชื่อสินค้า")
+            p_price = st.text_input("ราคา/เงื่อนไข")
+            p_desc = st.text_area("รายละเอียด")
+            
+            if st.form_submit_button("🚀 Publish Now"):
+                if p_name and p_price:
+                    new_data = pd.DataFrame([{"username": p_name, "password": p_price, "email": p_desc, "role": "Product_Listing"}])
+                    updated_df = pd.concat([df, new_data], ignore_index=True)
+                    conn = st.connection("gsheets", type=GSheetsConnection)
+                    conn.update(data=updated_df)
+                    st.balloons()
+                    st.success(f"บันทึก '{p_name}' ลง Google Sheets เรียบร้อย!")
+                    st.rerun()
+    
+    with tab2:
+        st.write("ข้อมูลปัจจุบันใน Sheets ของบอส:")
+        st.dataframe(df)
+else:
+    st.warning("🔄 กรุณารอสักครู่ ระบบกำลังเจรจากับ Google... หากยังไม่มา ให้กด 'Manage App' -> 'Reboot App' ครับ")
