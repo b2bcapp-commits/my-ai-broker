@@ -13,19 +13,13 @@ SENDER_EMAIL = "dropshipmillionaire19@gmail.com"
 SENDER_PASSWORD = "byyh oiii eibi cuov"
 MY_WHATSAPP_LINK = "https://wa.me/66964474797?text=Hello%20CEO"
 
-# เชื่อมต่อฐานข้อมูล
+# เชื่อมต่อฐานข้อมูล (Sheet1 สำหรับ User, Sheet2 สำหรับ Products)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- 2. FUNCTIONS ---
 def get_user_data():
-    try:
-        return conn.read(ttl=0)
-    except:
-        return pd.DataFrame(columns=["username", "password", "email", "role"])
-
-def save_to_sheets(updated_df):
-    conn.update(data=updated_df)
-    st.cache_data.clear()
+    try: return conn.read(ttl=0)
+    except: return pd.DataFrame(columns=["username", "password", "email", "role"])
 
 def send_email(receiver, subject, message):
     try:
@@ -40,16 +34,14 @@ def send_email(receiver, subject, message):
         server.sendmail(SENDER_EMAIL, receiver, msg.as_string())
         server.quit()
         return True
-    except:
-        return False
+    except: return False
 
 # --- 3. UI STATE ---
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# --- 4. SIDEBAR NAVIGATION ---
+# --- 4. SIDEBAR ---
 df_users = get_user_data()
-
 with st.sidebar:
     st.title("🌐 Global Hub")
     if not st.session_state['logged_in']:
@@ -62,7 +54,7 @@ with st.sidebar:
         st.divider()
         st.markdown(f'''<a href="{MY_WHATSAPP_LINK}" target="_blank"><button style="background-color: #25D366; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;">WhatsApp CEO</button></a>''', unsafe_allow_html=True)
 
-# --- 5. AUTHENTICATION PAGES ---
+# --- 5. AUTH PAGES (Login/Sign Up/Forgot) ---
 if not st.session_state['logged_in']:
     if mode == "Login":
         st.title("🔐 เข้าสู่ระบบ")
@@ -74,73 +66,73 @@ if not st.session_state['logged_in']:
                 st.session_state.logged_in = True
                 st.session_state.username = u
                 st.session_state.role = match.iloc[0]['role']
+                st.session_state.user_email = match.iloc[0]['email']
                 st.rerun()
-            else:
-                st.error("Username หรือ Password ไม่ถูกต้อง")
-
+            else: st.error("ข้อมูลไม่ถูกต้อง")
     elif mode == "Sign Up":
         st.title("📝 สมัครสมาชิก")
-        nu = st.text_input("Username")
-        ne = st.text_input("Email")
-        np = st.text_input("Password", type="password")
-        nr = st.selectbox("ฉันเป็นใคร", ["Buyer", "Seller"])
+        nu, ne, np = st.text_input("Username"), st.text_input("Email"), st.text_input("Password", type="password")
+        nr = st.selectbox("Role", ["Buyer", "Seller"])
         if st.button("สร้างบัญชี"):
-            if nu and ne and np:
-                new_data = pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])
-                save_to_sheets(pd.concat([df_users, new_data], ignore_index=True))
-                send_email(ne, "ยินดีต้อนรับ", f"คุณ {nu} สมัครสมาชิกสำเร็จแล้ว!")
-                st.success("ลงทะเบียนสำเร็จ!")
-                st.balloons()
-            else:
-                st.error("กรุณากรอกข้อมูลให้ครบ")
-
+            new_data = pd.concat([df_users, pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])], ignore_index=True)
+            conn.update(data=new_data); st.cache_data.clear()
+            send_email(ne, "Welcome", f"Hi {nu}, welcome aboard!")
+            st.success("สำเร็จ!")
     elif mode == "Forgot Password":
         st.title("🔑 กู้คืนรหัสผ่าน")
-        target = st.text_input("กรอกอีเมลที่ลงทะเบียนไว้")
-        if st.button("ส่งรหัสผ่านให้ฉัน"):
-            user_info = df_users[df_users['email'] == target]
-            if not user_info.empty:
-                pwd = user_info.iloc[0]['password']
-                if send_email(target, "กู้คืนรหัสผ่าน", f"รหัสผ่านของคุณคือ: {pwd}"):
-                    st.success("📩 ส่งรหัสผ่านไปที่อีเมลแล้วครับ!")
-                else:
-                    st.error("เกิดข้อผิดพลาดในการส่งอีเมล")
-            else:
-                st.error("ไม่พบอีเมลนี้ในระบบ")
+        target = st.text_input("อีเมล")
+        if st.button("ส่งรหัสผ่าน"):
+            match = df_users[df_users['email'] == target]
+            if not match.empty:
+                send_email(target, "Password recovery", f"Your password is: {match.iloc[0]['password']}")
+                st.success("ส่งแล้ว!")
     st.stop()
 
-# --- 6. MAIN CONTENT (CEO & USER DASHBOARD) ---
-st.title(f"📊 {st.session_state.role} Dashboard")
+# --- 6. MAIN CONTENT (Marketplace & CEO Admin) ---
+st.title(f"📊 {st.session_state.role} Control Center")
 
-# ถ้าเป็น CEO ให้เห็นระบบเรดาร์หาลูกค้า
 if st.session_state.role == "CEO" or st.session_state.username == "admin":
-    tab1, tab2 = st.tabs(["📡 AI Lead Radar", "👥 ฐานข้อมูลสมาชิก"])
+    tab1, tab2, tab3 = st.tabs(["📡 AI Lead Radar", "👥 Members", "📦 Product Management"])
     
     with tab1:
-        st.header("🎯 เจาะฐานข้อมูลลูกค้าทั่วโลก")
-        col1, col2 = st.columns(2)
-        with col1:
-            kw = st.text_input("สินค้าที่ค้นหา", "Sugar IC45")
-            ct = st.text_input("ประเทศเป้าหมาย", "Dubai")
-        with col2:
-            st.write("🔍 กดสแกนทันที:")
-            q = urllib.parse.quote(f"{kw} importer in {ct}")
-            li = urllib.parse.quote(f'site:linkedin.com/in/ "purchasing manager" AND "{kw}" AND "{ct}"')
-            st.markdown(f"• [🏢 สแกนบริษัทบน Google Maps](https://www.google.com/maps/search/{q})")
-            st.markdown(f"• [👤 สแกนรายชื่อคนบน LinkedIn](https://www.google.com/search?q={li})")
-        
-        st.divider()
-        st.subheader("📥 บันทึกรายชื่อใหม่")
-        with st.form("save_lead"):
-            c_name = st.text_input("ชื่อบริษัท/ลูกค้า")
-            c_mail = st.text_input("อีเมล/เบอร์โทร")
-            c_note = st.text_input("ความต้องการ")
-            if st.form_submit_button("บันทึกลง Google Sheets"):
-                lead = pd.DataFrame([{"username": c_name, "password": "N/A", "email": c_mail, "role": f"Lead: {c_note}"}])
-                save_to_sheets(pd.concat([df_users, lead], ignore_index=True))
-                st.success("บันทึกเรียบร้อย!")
+        st.header("🎯 ค้นหาลูกค้าใหม่")
+        kw, ct = st.text_input("สินค้า"), st.text_input("ประเทศ")
+        q = urllib.parse.quote(f"{kw} importer in {ct}")
+        st.markdown(f"[🏢 สแกนบริษัทบน Google Maps](https://www.google.com/maps/search/{q})")
     
-    with tab2:
-        st.dataframe(get_user_data(), use_container_width=True)
-else:
-    st.info(f"ยินดีต้อนรับคุณ {st.session_state.username}! ตอนนี้ระบบกำลังเตรียมรายการสินค้าใหม่สำหรับคุณ")
+    with tab2: st.dataframe(df_users)
+    
+    with tab3:
+        st.header("➕ เพิ่มสินค้าใหม่ลงหน้าร้าน")
+        with st.form("add_product"):
+            p_name = st.text_input("ชื่อสินค้า (e.g. Sugar IC45)")
+            p_price = st.text_input("ราคา/เงื่อนไข (e.g. $450/MT CIF)")
+            p_desc = st.text_area("รายละเอียดสินค้า")
+            if st.form_submit_button("ประกาศขายสินค้า"):
+                # ในที่นี้เราจะบันทึกลง Sheet เดิมโดยระบุ Role เป็น "Product" เพื่อเก็บข้อมูล
+                prod_row = pd.DataFrame([{"username": p_name, "password": p_price, "email": p_desc, "role": "Product_Listing"}])
+                conn.update(data=pd.concat([df_users, prod_row], ignore_index=True))
+                st.success("สินค้าถูกเพิ่มลง Marketplace แล้ว!")
+
+else: # ส่วนของ Buyer / Seller
+    st.header("🛒 Global Marketplace")
+    st.write("เลือกสินค้าที่คุณต้องการ และกดปุ่มสนใจเพื่อให้เจ้าหน้าที่ติดต่อกลับ")
+    
+    products = df_users[df_users['role'] == "Product_Listing"]
+    if products.empty:
+        st.info("ขออภัย ขณะนี้ยังไม่มีรายการสินค้า")
+    else:
+        for index, row in products.iterrows():
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.subheader(f"📦 {row['username']}")
+                    st.write(f"**ราคา/เงื่อนไข:** {row['password']}")
+                    st.write(f"**รายละเอียด:** {row['email']}")
+                with col2:
+                    if st.button(f"สนใจสินค้า", key=index):
+                        # ส่งอีเมลหา CEO
+                        alert_msg = f"User: {st.session_state.username} ({st.session_state.user_email}) สนใจสินค้า: {row['username']}"
+                        send_email("dropshipmillionaire19@gmail.com", "New Inquiry!", alert_msg)
+                        st.success("เราได้รับความสนใจของคุณแล้ว CEO จะติดต่อกลับโดยเร็วที่สุด")
+                st.divider()
