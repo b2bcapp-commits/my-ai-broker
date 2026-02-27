@@ -7,25 +7,20 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Global Trade Hub - CEO", layout="wide", page_icon="🌍")
+st.set_page_config(page_title="Global Trade Hub", layout="wide", page_icon="🌍")
 
-# ข้อมูลการติดต่อและอีเมล (อ้างอิงจากภาพ image_bf387c และ image_bf317a)
 SENDER_EMAIL = "dropshipmillionaire19@gmail.com"
 SENDER_PASSWORD = "byyh oiii eibi cuov"
 MY_WHATSAPP_LINK = "https://wa.me/66964474797?text=Hello%20CEO"
 
 # เชื่อมต่อ Google Sheets
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-except Exception:
-    st.error("⚠️ ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบการตั้งค่า Secrets")
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- 2. CORE FUNCTIONS ---
 def get_user_data():
     try:
         return conn.read(ttl=0)
-    except Exception:
-        # กรณี Sheet ว่างเปล่า ให้สร้าง DataFrame พื้นฐาน
+    except:
         return pd.DataFrame(columns=["username", "password", "email", "role"])
 
 def save_to_sheets(updated_df):
@@ -52,26 +47,26 @@ def send_email(receiver, subject, message):
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# --- 4. SIDEBAR ---
+# --- 4. SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.title("🌐 Menu Control")
+    st.title("🌐 Global Hub")
     if not st.session_state['logged_in']:
-        mode = st.radio("Access", ["Login", "Sign Up"])
+        # คืนค่าเมนูที่หายไปตรงนี้ครับบอส
+        mode = st.radio("Access Menu", ["Login", "Sign Up", "Forgot Password"])
     else:
         st.success(f"User: **{st.session_state.username}**")
-        st.write(f"Role: **{st.session_state.role}**")
         if st.button("Logout"):
             st.session_state.logged_in = False
             st.rerun()
         st.divider()
         st.markdown(f'''<a href="{MY_WHATSAPP_LINK}" target="_blank"><button style="background-color: #25D366; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;">WhatsApp Support</button></a>''', unsafe_allow_html=True)
 
-# --- 5. LOGIN & SIGN UP LOGIC ---
+# --- 5. AUTHENTICATION PAGES ---
 df_users = get_user_data()
 
 if not st.session_state['logged_in']:
     if mode == "Login":
-        st.title("🔐 เข้าสู่ระบบ")
+        st.title("🔐 Login")
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
         if st.button("Sign In"):
@@ -82,58 +77,49 @@ if not st.session_state['logged_in']:
                 st.session_state.role = match.iloc[0]['role']
                 st.rerun()
             else:
-                st.error("Username หรือ Password ไม่ถูกต้อง")
+                st.error("Invalid Username or Password")
 
     elif mode == "Sign Up":
-        st.title("📝 สมัครสมาชิกใหม่")
+        st.title("📝 Register")
         nu = st.text_input("Username")
         ne = st.text_input("Email")
         np = st.text_input("Password", type="password")
-        nr = st.selectbox("Role", ["Buyer", "Seller"])
+        nr = st.selectbox("I am a", ["Buyer", "Seller"])
         if st.button("Create Account"):
             if nu and ne and np:
                 new_row = pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])
                 save_to_sheets(pd.concat([df_users, new_row], ignore_index=True))
-                send_email(ne, "Welcome", f"Account {nu} is ready!")
-                st.success("ลงทะเบียนสำเร็จ!")
+                send_email(ne, "Welcome", f"Hello {nu}, your account is ready!")
+                st.success("Registration Success!")
                 st.balloons()
+            else:
+                st.error("Please fill all fields")
+
+    elif mode == "Forgot Password":
+        st.title("🔑 Password Recovery")
+        target_email = st.text_input("Enter your registered email")
+        if st.button("Recover Password"):
+            user_info = df_users[df_users['email'] == target_email]
+            if not user_info.empty:
+                pwd = user_info.iloc[0]['password']
+                success = send_email(target_email, "Password Recovery", f"Your password is: {pwd}")
+                if success:
+                    st.success("📩 Password has been sent to your email.")
+                else:
+                    st.error("Failed to send email. Check your settings.")
+            else:
+                st.error("Email not found in our database.")
     st.stop()
 
-# --- 6. CEO MAIN DASHBOARD ---
-st.title("📊 CEO Command & Control Center")
+# --- 6. CEO MAIN DASHBOARD (Visible only after login) ---
+st.title(f"📊 {st.session_state.role} Command Center")
 
-tab1, tab2, tab3 = st.tabs(["🎯 AI Lead Radar", "👥 User Database", "➕ System Logs"])
+tab1, tab2 = st.tabs(["🎯 AI Lead Radar", "👥 User Database"])
 
 with tab1:
-    st.header("📡 ระบบสแกนหาลูกค้าอัจฉริยะ")
+    st.header("📡 AI Lead Radar (Scan Global Markets)")
     c1, c2 = st.columns(2)
     with c1:
-        keyword = st.text_input("ระบุสินค้าเป้าหมาย", "Sugar IC45")
-        country = st.text_input("ระบุประเทศ", "Dubai")
+        keyword = st.text_input("Product Name", "Sugar IC45")
+        country = st.text_input("Target Country", "Dubai")
     with c2:
-        st.write("🔗 ลิงก์สแกนหาลูกค้า (ฟรี):")
-        q = urllib.parse.quote(f"{keyword} importer in {country}")
-        li_q = urllib.parse.quote(f'site:linkedin.com/in/ "purchasing manager" AND "{keyword}" AND "{country}"')
-        st.markdown(f"• [🔍 สแกนบริษัทบน Google Maps](https://www.google.com/maps/search/{q})")
-        st.markdown(f"• [👔 สแกนตัวบุคคลบน LinkedIn](https://www.google.com/search?q={li_q})")
-
-    st.divider()
-    st.subheader("📥 บันทึกรายชื่อลูกค้าใหม่")
-    with st.form("lead_form"):
-        l_name = st.text_input("ชื่อบริษัท/ลูกค้า")
-        l_contact = st.text_input("อีเมล/เบอร์โทร")
-        l_note = st.text_input("ความต้องการ (เช่น ต้องการ Rice 500 ตัน)")
-        if st.form_submit_button("บันทึกลง Google Sheets"):
-            lead_row = pd.DataFrame([{"username": l_name, "password": "N/A", "email": l_contact, "role": f"Lead: {l_note}"}])
-            save_to_sheets(pd.concat([df_users, lead_row], ignore_index=True))
-            st.success("บันทึกข้อมูลสำเร็จ!")
-
-with tab2:
-    st.header("👥 ฐานข้อมูลทั้งหมด")
-    st.dataframe(get_user_data(), use_container_width=True)
-
-with tab3:
-    st.header("⚙️ ระบบสถานะ")
-    st.write("• สถานะฐานข้อมูล: **Connected**")
-    st.write("• สถานะอีเมล: **Ready**")
-    st.info("หน้านี้ไว้สำหรับตรวจสอบความเรียบร้อยของระบบบอทครับบอส")
