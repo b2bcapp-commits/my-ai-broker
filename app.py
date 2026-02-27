@@ -6,17 +6,17 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# --- 1. CONFIGURATION ---
+# --- 1. SETTING ---
 st.set_page_config(page_title="Global Trade Hub", layout="wide", page_icon="🌍")
 
 SENDER_EMAIL = "dropshipmillionaire19@gmail.com"
 SENDER_PASSWORD = "byyh oiii eibi cuov"
 MY_WHATSAPP_LINK = "https://wa.me/66964474797?text=Hello%20CEO"
 
-# เชื่อมต่อ Google Sheets
+# เชื่อมต่อฐานข้อมูล
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 2. CORE FUNCTIONS ---
+# --- 2. FUNCTIONS ---
 def get_user_data():
     try:
         return conn.read(ttl=0)
@@ -43,30 +43,29 @@ def send_email(receiver, subject, message):
     except:
         return False
 
-# --- 3. SESSION STATE ---
+# --- 3. UI STATE ---
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 # --- 4. SIDEBAR NAVIGATION ---
+df_users = get_user_data()
+
 with st.sidebar:
     st.title("🌐 Global Hub")
     if not st.session_state['logged_in']:
-        # คืนค่าเมนูที่หายไปตรงนี้ครับบอส
-        mode = st.radio("Access Menu", ["Login", "Sign Up", "Forgot Password"])
+        mode = st.radio("เมนูการเข้าถึง", ["Login", "Sign Up", "Forgot Password"])
     else:
-        st.success(f"User: **{st.session_state.username}**")
+        st.success(f"ผู้ใช้งาน: {st.session_state.username}")
         if st.button("Logout"):
             st.session_state.logged_in = False
             st.rerun()
         st.divider()
-        st.markdown(f'''<a href="{MY_WHATSAPP_LINK}" target="_blank"><button style="background-color: #25D366; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;">WhatsApp Support</button></a>''', unsafe_allow_html=True)
+        st.markdown(f'''<a href="{MY_WHATSAPP_LINK}" target="_blank"><button style="background-color: #25D366; color: white; border: none; padding: 10px; border-radius: 5px; width: 100%; cursor: pointer; font-weight: bold;">WhatsApp CEO</button></a>''', unsafe_allow_html=True)
 
 # --- 5. AUTHENTICATION PAGES ---
-df_users = get_user_data()
-
 if not st.session_state['logged_in']:
     if mode == "Login":
-        st.title("🔐 Login")
+        st.title("🔐 เข้าสู่ระบบ")
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
         if st.button("Sign In"):
@@ -77,49 +76,71 @@ if not st.session_state['logged_in']:
                 st.session_state.role = match.iloc[0]['role']
                 st.rerun()
             else:
-                st.error("Invalid Username or Password")
+                st.error("Username หรือ Password ไม่ถูกต้อง")
 
     elif mode == "Sign Up":
-        st.title("📝 Register")
+        st.title("📝 สมัครสมาชิก")
         nu = st.text_input("Username")
         ne = st.text_input("Email")
         np = st.text_input("Password", type="password")
-        nr = st.selectbox("I am a", ["Buyer", "Seller"])
-        if st.button("Create Account"):
+        nr = st.selectbox("ฉันเป็นใคร", ["Buyer", "Seller"])
+        if st.button("สร้างบัญชี"):
             if nu and ne and np:
-                new_row = pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])
-                save_to_sheets(pd.concat([df_users, new_row], ignore_index=True))
-                send_email(ne, "Welcome", f"Hello {nu}, your account is ready!")
-                st.success("Registration Success!")
+                new_data = pd.DataFrame([{"username": nu, "password": np, "email": ne, "role": nr}])
+                save_to_sheets(pd.concat([df_users, new_data], ignore_index=True))
+                send_email(ne, "ยินดีต้อนรับ", f"คุณ {nu} สมัครสมาชิกสำเร็จแล้ว!")
+                st.success("ลงทะเบียนสำเร็จ!")
                 st.balloons()
             else:
-                st.error("Please fill all fields")
+                st.error("กรุณากรอกข้อมูลให้ครบ")
 
     elif mode == "Forgot Password":
-        st.title("🔑 Password Recovery")
-        target_email = st.text_input("Enter your registered email")
-        if st.button("Recover Password"):
-            user_info = df_users[df_users['email'] == target_email]
+        st.title("🔑 กู้คืนรหัสผ่าน")
+        target = st.text_input("กรอกอีเมลที่ลงทะเบียนไว้")
+        if st.button("ส่งรหัสผ่านให้ฉัน"):
+            user_info = df_users[df_users['email'] == target]
             if not user_info.empty:
                 pwd = user_info.iloc[0]['password']
-                success = send_email(target_email, "Password Recovery", f"Your password is: {pwd}")
-                if success:
-                    st.success("📩 Password has been sent to your email.")
+                if send_email(target, "กู้คืนรหัสผ่าน", f"รหัสผ่านของคุณคือ: {pwd}"):
+                    st.success("📩 ส่งรหัสผ่านไปที่อีเมลแล้วครับ!")
                 else:
-                    st.error("Failed to send email. Check your settings.")
+                    st.error("เกิดข้อผิดพลาดในการส่งอีเมล")
             else:
-                st.error("Email not found in our database.")
+                st.error("ไม่พบอีเมลนี้ในระบบ")
     st.stop()
 
-# --- 6. CEO MAIN DASHBOARD (Visible only after login) ---
-st.title(f"📊 {st.session_state.role} Command Center")
+# --- 6. MAIN CONTENT (CEO & USER DASHBOARD) ---
+st.title(f"📊 {st.session_state.role} Dashboard")
 
-tab1, tab2 = st.tabs(["🎯 AI Lead Radar", "👥 User Database"])
-
-with tab1:
-    st.header("📡 AI Lead Radar (Scan Global Markets)")
-    c1, c2 = st.columns(2)
-    with c1:
-        keyword = st.text_input("Product Name", "Sugar IC45")
-        country = st.text_input("Target Country", "Dubai")
-    with c2:
+# ถ้าเป็น CEO ให้เห็นระบบเรดาร์หาลูกค้า
+if st.session_state.role == "CEO" or st.session_state.username == "admin":
+    tab1, tab2 = st.tabs(["📡 AI Lead Radar", "👥 ฐานข้อมูลสมาชิก"])
+    
+    with tab1:
+        st.header("🎯 เจาะฐานข้อมูลลูกค้าทั่วโลก")
+        col1, col2 = st.columns(2)
+        with col1:
+            kw = st.text_input("สินค้าที่ค้นหา", "Sugar IC45")
+            ct = st.text_input("ประเทศเป้าหมาย", "Dubai")
+        with col2:
+            st.write("🔍 กดสแกนทันที:")
+            q = urllib.parse.quote(f"{kw} importer in {ct}")
+            li = urllib.parse.quote(f'site:linkedin.com/in/ "purchasing manager" AND "{kw}" AND "{ct}"')
+            st.markdown(f"• [🏢 สแกนบริษัทบน Google Maps](https://www.google.com/maps/search/{q})")
+            st.markdown(f"• [👤 สแกนรายชื่อคนบน LinkedIn](https://www.google.com/search?q={li})")
+        
+        st.divider()
+        st.subheader("📥 บันทึกรายชื่อใหม่")
+        with st.form("save_lead"):
+            c_name = st.text_input("ชื่อบริษัท/ลูกค้า")
+            c_mail = st.text_input("อีเมล/เบอร์โทร")
+            c_note = st.text_input("ความต้องการ")
+            if st.form_submit_button("บันทึกลง Google Sheets"):
+                lead = pd.DataFrame([{"username": c_name, "password": "N/A", "email": c_mail, "role": f"Lead: {c_note}"}])
+                save_to_sheets(pd.concat([df_users, lead], ignore_index=True))
+                st.success("บันทึกเรียบร้อย!")
+    
+    with tab2:
+        st.dataframe(get_user_data(), use_container_width=True)
+else:
+    st.info(f"ยินดีต้อนรับคุณ {st.session_state.username}! ตอนนี้ระบบกำลังเตรียมรายการสินค้าใหม่สำหรับคุณ")
